@@ -1,5 +1,6 @@
-var http = require('http');
 var url = require('url');
+var http = require('http');
+var cmd = require('commander');
 
 
 function decodeUrl(urlStr)
@@ -14,14 +15,18 @@ function decodeUrl(urlStr)
 }
 
 
-var postUrl = null;
+cmd
+  .version('1.0')
+  .option('-g, --get [url]', 'GET URL')
+  .option('-p, --post [url]', 'POST URL')
+  .option('-l, --limit [bytes]', 'Download limit')
+  .parse(process.argv);
+
 var postReq = null;
+var ctype = 'content-type';
 
-if(process.argv.length > 3)
-	postUrl = process.argv[3];
-
-if(postUrl) {
-  var postOpts = decodeUrl(postUrl);
+if(cmd.post) {
+  var postOpts = decodeUrl(cmd.post);
   postOpts.method = 'POST';
 
   postReq = http.request(postOpts, function(res) {
@@ -32,53 +37,48 @@ if(postUrl) {
     });
   });
   
-  postReq.setHeader('content-type', 'application/octet-stream');
+  postReq.setHeader(ctype, 'application/octet-stream');
 }
 
-var getUrl = 'http://modulix.org:8000/libre.ogg';
+if(cmd.get) {
+  var getOpts = decodeUrl(cmd.get);
+  getOpts.method = 'GET';
 
-if(process.argv.length > 2)
-	getUrl = process.argv[2];
+  var total = 0;
+  var header = null;
 
-var getOpts = decodeUrl(getUrl);
-getOpts.method = 'GET';
-
-var total = 0;
-var header = null;
-
-http.request(getOpts, function(res) {
-  console.log(res.headers);
+  http.request(getOpts, function(res) {
+    console.log('\n', res.headers, '\n');
   
-  header = res.headers['content-type'];
+    header = res.headers[ctype];
   
-  res.setEncoding('binary');
+    res.setEncoding('binary');
   
-  res.on('data', function (chunk) {
-    console.log('[', typeof chunk, '] Received', chunk.length, 'bytes');
+    res.on('data', function (chunk) {
+      console.log('[', typeof chunk, '] Received', chunk.length, 'bytes');
     
-    var buff = new Buffer(chunk.length);
-    buff.write(chunk, 'binary');
-    
-    if(postReq) {
-    	if(header) {
-    		postReq.setHeader('content-type', header);
-    		header = null;
-    	}
+      if(postReq) {
+        if(header) {
+          postReq.setHeader(ctype, header);
+          header = null;
+        }
     	
-    	//postReq.write(buff/*chunk*/);
-    	postReq.write(chunk, 'binary');
-    }
+        postReq.write(chunk, 'binary');
+      }
     
-    total += chunk.length;
+      total += chunk.length;
     
-    /*if(total >= 10000)
-    	process.exit(0);*/
-  });
+      if(cmd.limit) {
+        if(total >= cmd.limit)
+          res.destroy();  
+      }
+    });
 
-  res.on('end', function () {
-	console.log('Total received =', total, 'bytes');
+    res.on('end', function () {
+	  console.log('\nTotal received =', total, 'bytes\n');
 	
-	if(postReq) 
-		postReq.end();
-  });	
-}).end();
+	  if(postReq) 
+	    postReq.end();
+    });	
+  }).end();
+}
