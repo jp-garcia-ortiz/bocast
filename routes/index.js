@@ -47,7 +47,7 @@ router.post('/emit', function(req, res) {
       var viewer = viewers[i];
       
       if(viewer.init) {
-        if(header)
+        if(channel.header)
           viewer.res.setHeader(ctype, channel.header);
           
         viewer.init = false;
