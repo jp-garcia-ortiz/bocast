@@ -20,7 +20,7 @@ function Viewer(res)
 /* GET home page. */
 router.get('/', function(req, res) {
   res.render('index', {
-    title : 'Express'
+    title : 'BoCast Streaming Server'
   });
 });
 
